@@ -1,0 +1,219 @@
+#!/usr/bin/env python3
+import sys
+
+class NFA:
+    states = None
+    alphabet = None
+    start_state = None
+    final_states = None
+    transitions = None
+
+def read_nfa(nfa_file):
+    my_file = open(nfa_file)
+    my_file = my_file.readlines()
+    d_nfa = dict()
+
+    states = set(my_file[0].split())
+    alphabet = set(my_file[1].strip().split())
+    start_state = my_file[2].strip()
+    final_states = set(my_file[3].strip().split())
+    my_file[0] = my_file[0].split()
+
+
+    # initialize each state for each member of the alphabet
+    for state in states:
+        d_nfa[state] = dict()
+        d_nfa[state]['&'] = []
+
+        for letter in alphabet:
+            d_nfa[state][letter] = []
+    #add transitions
+    for line in my_file[4:]:
+        line = line.split()
+        curr = line[0]
+        value = line[1]
+        new = line[2]
+
+        if new not in set(d_nfa[curr][value]):
+            d_nfa[curr][value].append(new)
+
+    #create the nfa
+    nfa = NFA()
+    nfa.states = states
+    nfa.alphabet = alphabet
+    nfa.start_state = start_state
+    nfa.final_states = final_states
+    nfa.transitions = d_nfa
+    return nfa
+
+
+def write_nfa(M, nfa_file):
+    f = open(nfa_file, "w")
+    for i, state in enumerate(M.states):
+        if (i < len(M.states)-1):
+            f.write(f'{state} ')
+        else:
+            f.write(f'{state}\n')
+
+    for i, value in enumerate(M.alphabet):
+        if (i < len(M.alphabet)-1):
+            f.write(f'{value} ')
+        else:
+            f.write(f'{value}\n')
+
+    f.write(f'{M.start_state}\n')
+
+
+    for i, state in enumerate(M.final_states):
+        if (i < len(M.final_states)-1):
+            f.write(f'{state} ')
+        else:
+            f.write(f'{state}\n')
+    
+    M.alphabet.append('&')
+    for state in M.states:
+        for value in M.alphabet:
+            states = M.transitions[state][value]
+            if states is not None:
+                for delta in states:
+                    f.write(f'{state} {value} {delta}\n')
+
+def match(M, w):
+    if w == "" and M.start_state in M.final_states:
+        return (True, [])
+
+    curr_states = []
+    curr_states.append(M.start_state)
+    graph = dict()
+
+    marker = 0
+    graph[(M.start_state, marker)] = None
+
+    while marker < len(w) +1:
+
+        if marker < len(w):
+            letter = w[marker]
+        else:
+            letter = None
+        
+        marker = marker + 1
+        next_states = []
+        #visited = set()
+
+
+        for curr_state in curr_states:
+
+            # check for epsilon transitions
+            if M.transitions[curr_state]['&']:
+                #initialize epsilon_states and graph
+                epsilon_states = M.transitions[curr_state]['&']
+
+                for state in epsilon_states:
+                    try:
+                        graph[(state, marker-1)]
+                    except:
+                        graph[(state, marker-1)] = (curr_state, marker-1)
+                        curr_states.append(state)
+
+                #check for possible epsilon chain
+                for state in epsilon_states:
+                    try:
+                        graph[(state, marker-1)]
+                    except:
+                        curr_states.append(state)
+                    
+
+                    if M.transitions[state]['&']:
+                        for epsilon in M.transitions[state]['&']:
+                            try:
+                                graph[(state, marker-1)]
+                            except:
+                                epsilon_states.append(epsilon)
+                                graph[(epsilon, marker-1)] = (state, marker-1)
+                        
+
+            
+            #build graph
+            next_set = set()
+            if letter:
+                try:
+                    M.transitions[curr_state][letter]
+                except:
+                    return False
+
+                for state in M.transitions[curr_state][letter]:
+                    graph[(state, marker)] = (curr_state, marker-1)
+                    if state not in next_set:
+                        next_states.append(state)
+                        next_set.add(state)
+        
+        curr_states = next_states
+    
+    # construct the path:
+     
+    path = []
+    state = ''
+    start_state = M.start_state
+    
+    for final_state in M.final_states:
+        if (final_state, len(w)) in graph:
+
+            state = final_state
+            path.append((state, None))
+            i = len(w)
+
+            while (i > 0):
+                next_state = graph[(state, i)][0]
+                
+                if graph[(state, i)][1] == i:
+                    path.append((next_state, '&'))
+                    state = next_state
+                else:
+                    state = next_state
+                    i = i - 1
+                    path.append((next_state, w[i]))
+
+            # check if path started with an epsilon transition
+            
+            while state != start_state:
+                state = graph[(state, 0)][0]
+                path.append((state, '&'))
+
+            path.reverse()
+            return (True, path)
+
+
+    return False
+
+def main():
+    args = sys.argv[1:]
+    nfa_file = args[0]
+    w = args[1]
+
+    M = read_nfa(nfa_file)
+    result = match(M, w)
+
+
+
+    if result:
+        print("accept")
+
+        for i, transition in enumerate(result[1]):
+
+            if i > 0 and i < len(result[1]) -1:
+                print(f'{transition[0]}')
+                
+            if transition[1]:
+                print(f'{transition[0]} {transition[1]} ', end='')
+            else:
+                print(f'{transition[0]}')
+
+    else:
+        print("reject")
+
+
+
+# Main Execution
+
+if __name__ == '__main__':
+    main()

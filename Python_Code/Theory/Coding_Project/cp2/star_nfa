@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+#star_nfa
+
+import sys
+from functions import star_nfa, print_file
+
+def main():
+    w = sys.argv[1:][0]
+    star_nfa(w, "output_file")
+
+    print_file("output_file")
+
+
+# Main Execution
+
+if __name__ == '__main__':
+    main()

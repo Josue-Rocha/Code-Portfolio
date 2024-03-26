@@ -1,0 +1,262 @@
+#!/usr/bin/env python3
+import sys
+from dataclasses import dataclass
+
+@dataclass
+class Union:
+    alpha: None
+    beta: None
+
+@dataclass
+class Epsilon:
+    value: None
+
+@dataclass
+class Concat:
+    alpha: None
+    beta: None
+
+@dataclass
+class Star:
+    value: None
+
+@dataclass
+class Symbol:
+    value: str
+
+#class Node:
+
+def check(the_set, w, i, Below=True, pop=True):
+
+    if Below:
+        try: 
+            if not pop:
+
+                if isinstance(w[i], tuple) and w[i][0] in the_set:
+                    return True
+
+                if w[i] in the_set:
+                    return True
+            else:
+                if isinstance(w[i], tuple) and w[i][0] in the_set:
+                    return True
+
+                if w[i-1] in the_set:
+                    return True
+
+        except:
+            return False
+
+    if not Below:
+        try:
+            #if w[i+1] in the_set:
+                #return True
+
+            if i == len(w) -1:
+                return True
+
+            #if isinstance(w[i-1], tuple) and w[i-1][0] in the_set:
+                #return True
+
+            if w[i] in the_set:
+                return True
+        except:
+            return False
+
+    return False
+
+def parse(w):
+    
+    stack = []
+    stack.append("$")
+    stack_pos = 0
+    size = len(w)
+
+    #"#" = "⊣" end marker
+    w.append("#")
+
+    i = 0
+    marker = True
+    while(marker):
+        #break
+        #print(f'stack is {stack}, i = {i}, stack_pos = {stack_pos}')
+        
+        try:
+            value = w[i]
+        except:
+           value = None
+         
+        #Rule 1: a ∈ Σ
+        if check({"$", "(", "|", "T"}, stack, stack_pos, Below=True, pop=False) and value.isalnum():
+            stack.append(value)
+            stack_pos = stack_pos + 1
+            i = i + 1
+            continue
+        
+        #Rule 2: (, ε → (
+        if check({"$", "(", "|", "T"}, stack, stack_pos, Below=True, pop=False) and value == "(":
+            stack.append(value)
+            stack_pos = stack_pos + 1
+            i = i + 1
+            continue
+
+        #Rule 3: ), ε → )
+        if check({"E"}, stack, stack_pos, Below=True, pop=False) and value == ")":
+            stack.append(value)
+            stack_pos = stack_pos + 1
+            i = i + 1
+            continue
+
+        #Rule 4: |, ε → |
+        if check({"E"}, stack, stack_pos, Below=True, pop=False) and value == "|":
+            stack.append(value)
+            stack_pos = stack_pos + 1
+            i = i + 1
+            continue
+
+        #Rule 5: *, ε → *
+        if check({"P"}, stack, stack_pos, Below=True, pop=False) and value == "*":
+            stack.append(value)
+            stack_pos = stack_pos + 1
+            i = i + 1
+            continue 
+
+        #Rule 6: ε, E|M → E
+        if stack_pos > 2 and isinstance(stack[-3], tuple) and isinstance(stack[-2], str) and isinstance(stack[-1], tuple) and stack[-3][0] == "E" and stack[-2] == "|" and stack[-1][0] == "M":
+
+            b = stack.pop()[1]
+            stack.pop()
+            a = stack.pop()[1]
+
+            union = Union(alpha=a, beta=b)
+            stack.append(("M", union))
+            stack_pos = stack_pos - 2
+            continue
+
+        #Rule 7: ε, M → E
+        if check({"$", "("}, stack, stack_pos, Below=True, pop=True) and isinstance(stack[-1], tuple) and stack[-1][0] == "M":
+            a = stack.pop()[1]
+            stack.append(("E", a))
+            #stack_pos = stack_pos + 1
+            continue
+
+        #Rule 8: ε, ε → M
+        if check({"$", "(", "|"}, stack, stack_pos, Below=True, pop=False) and check({"|", ")", "#"}, w, i, Below=False, pop=False):
+            epsilon = Epsilon(value=None)
+            stack.append(("M", epsilon))
+            stack_pos = stack_pos + 1
+            continue
+
+        #Rule 9: ε,T → M
+        if isinstance(stack[-1], tuple) and stack[-1][0] == "T" and check({"|", ")", "#"}, w, i, Below=False, pop=False):
+            a = stack.pop()[1]
+            stack.append(("M", a))
+            #stack_pos = stack_pos + 1
+            continue
+
+        #Rule 10: ε,TF → T
+        if stack_pos > 1 and isinstance(stack[-2], tuple) and isinstance(stack[-1], tuple) and stack[-2][0] == "T" and stack[-1][0] == "F":
+            b = stack.pop()[1]
+            a = stack.pop()[1]
+            concat = Concat(alpha=a, beta=b)
+            stack.append(("T", concat))
+            stack_pos = stack_pos - 1
+            continue
+
+        #Rule 11: ε, F → T
+        if check({"$", "(", "|"}, stack, stack_pos, Below=True, pop=True) and isinstance(stack[-1], tuple) and stack[-1][0] == "F":
+            a = stack.pop()[1]
+            stack.append(("T", a))
+            #stack_pos = stack_pos + 1
+            continue
+
+        #Rule 12: ε, P* → F
+        if stack_pos > 1 and isinstance(stack[-2], tuple) and stack[-2][0] == "P" and stack[-1] == "*":
+            b = stack.pop()
+            a = stack.pop()[1]
+            star = Star(value=a)
+            stack.append(("F", star))
+            stack_pos = stack_pos - 1
+            continue
+
+        #Rule 13: ε, P → F
+        if isinstance(stack[-1], tuple) and stack[-1][0] == "P" and ((i < size and w[i] != "*") or (i == size)):
+            a = stack.pop()[1]
+            stack.append(("F", a))
+            #stack_pos = stack_pos + 1
+            continue
+
+        #Rule 14: ε, a → P
+        try:
+            if stack[-1].isalnum():
+                a = stack.pop()
+                symbol = Symbol(value=a)
+                stack.append(("P", symbol))
+                continue
+        except:
+            pass
+
+        #Rule 15: ε, (E) → P
+        if stack_pos > 2 and stack[-3] == "(" and isinstance(stack[-2], tuple) and stack[-2][0] == "E" and stack[-1] == ")":
+            stack.pop()
+            a = stack.pop()[1]
+            stack.pop()
+
+            stack.append(("P", a))
+            stack_pos = stack_pos - 2
+            continue
+        marker = False
+    return stack
+
+def print_tree(root):
+    
+    if isinstance(root, Union):
+        print("union(",end='')
+        print_tree(root.alpha)
+        print(",", end='')
+        print_tree(root.beta)
+        print(")", end='')
+
+    elif isinstance(root, Epsilon):
+        print("epsilon()", end='')
+
+    elif isinstance(root, Concat):
+        print("concat(", end='')
+        print_tree(root.alpha)
+        print(",", end='')
+        print_tree(root.beta)
+        print(")", end='')
+
+    elif isinstance(root, Star):
+        print("star(", end='')
+        print_tree(root.value)
+        print(")", end='')
+
+    elif isinstance(root, Symbol):
+        print(f"symbol(\"{root.value}\")", end='')
+   
+    else:
+        print(root, end='')
+        
+def main():
+    #w = "(ab|)*"
+    w = list(sys.argv[1:][0])
+    #print(f'w = {w}')
+    stack = parse(w)
+
+    root = None
+    if isinstance(stack[-1], tuple) and stack[-1][0] == "E":
+        root = stack[-1][1]
+    else:
+        print(f"it failed, stack is {stack}")
+        return False
+
+    print_tree(root)
+    print()
+    #print(stack)
+
+
+# Main Execution
+
+if __name__ == '__main__':
+    main()
