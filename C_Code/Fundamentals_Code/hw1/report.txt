@@ -1,0 +1,11 @@
+1.
+From the user's perspective, this program is meant to take the a,b, and c values of almost any quadratic function and return the zeros. The user is given a message telling them what the program does and ensures that the values entered will not result in imaginary numbers. The user is then asked to put  in the values of a, b, and c in respectively and then the program will automatically generate the two zeros.
+
+2.
+From a programmer;s perspective, the layout of the program is very simple. It starts off with everything that is necessary such as stdio.h, math.h, int main() etc. It then has the printf function which is there to help ensure that there will be no imaginary numbers. It then has three separate scanf and printf functions which are there to ask the user to input the values a,b, and c respectively of the quadratic function. I then use two different variables (posx and negx) to store the result of the program for each of the zeros. I then have two different printf statements to display the results.
+
+3.
+I evaluated the program for correctness by running it myself and plugging in values for a,b, and c while knowing what the zeros should be beforehand. By doing this a few times I was able to verify that my prrogram runs correctly. The only cases in which it will not work, is when the zeros consist of imaginary numbers. This is because the computer does not know how to process imaginiary numbers (in this case the square root of a negative number).
+
+
+
